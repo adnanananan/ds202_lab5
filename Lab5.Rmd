@@ -1,0 +1,109 @@
+---
+title: "Lab 5"
+author: "Adnan Salihovic"
+date: "11/17/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(scales)
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+acc <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
+
+person <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+fatals <- subset(person, person$INJ_SEV == "4")
+```
+
+```{r}
+dat <-fatals %>%
+  group_by(STATE,MAKE)%>%
+  summarise(total = n())
+
+dat[is.na(dat)] <- 99
+
+dat2 <-  dat%>% 
+  group_by(STATE) %>% 
+  top_n(1, total)
+```
+
+```{r}
+info <- readxl::read_xls('Downloads/stinfo.xls')
+stinfo <- select(info, "State Name","State Code")
+stinfo <- rename(stinfo, STATE = "State Code")
+coinfo <- select(info, "County Name","County Code")
+coinfo <- rename(coinfo, COUNTY = "County Code")
+
+stinfo$STATE <- as.numeric(stinfo$STATE)
+coinfo$COUNTY <- as.numeric(coinfo$COUNTY)
+
+dat2 <- inner_join(dat2,stinfo, by= "STATE")
+dat2 <- distinct(dat2)
+```
+
+```{r}
+states <- map_data("state")
+dat2$`State Name` <- tolower(dat2$`State Name`)
+dat2 <- rename(dat2, region = "State Name")
+map1 <- dat2 %>% left_join(states, by="region")
+map1$MAKE <- as.character(map1$MAKE)
+ggplot(map1, aes(x = long, y = lat, color=MAKE)) +
+  geom_polygon(aes(group=group))
+"The criteria I used for dangerous vehicle was just the total amount of crashes that a make was in and then chose the top total for that make. The map shows that the west and east coast are all primarily made up of unknown makes, while the midwest is make 20 which is Chevrolet. New Hampshire's most dangerous make is Toyota. Wyomings is Ford."
+```
+
+```{r}
+dat3 <- left_join(person,acc,by = "ST_CASE")
+```
+
+```{r}
+dat4 <- dat3 %>%
+  group_by(DAY_WEEK)%>%
+  summarise(count = n())
+ggplot(dat4, aes(x=DAY_WEEK, y=count)) + geom_bar(stat = 'identity')
+"The days are labeled 1 = Sunday,  7 = Saturday. The weekend days (Saturday and Sunday) and Friday have the highest total for accidents, Saturday being the highest. The other weekdays are all fairly equal in total accidents."
+
+dat3 %>%
+  group_by(HOUR.x)%>%
+  summarise(count = n()) %>%
+  arrange(desc(count))%>%
+  head(10)
+"Looking at the above table of the 10 top 10 total accidents by hour, accidents mostly occur during the afternoon, closer to the evening rather that morning hours. "
+
+dat3 %>%
+  group_by(SEX)%>%
+  summarise(count = n())
+"Looking at the above table, (1 is Male, 2 is Female, 8 is not reported, and 9 is Unknown) There are significantly more reported accidents being Male than the others. Male accidents almost doubles the accidents of Females."
+```
+
+```{r}
+counties <- map_data("county")
+dat5 <- acc %>%
+  group_by(COUNTY)%>%
+  summarise(total = sum(FATALS))
+dat5 <- inner_join(dat5,coinfo, by= "COUNTY")
+dat5$`County Name` <- tolower(dat5$`County Name`)
+dat5 <- rename(dat5, subregion = "County Name")
+map2 <- dat5 %>% left_join(counties, by="subregion")
+
+ggplot(map2, aes(x = long, y = lat, color=total)) +
+  geom_polygon(aes(group=group))
+"Visually it seems that the right side of the map has more fatalities than the left side of the map but I am not sure if that is because of the space inbetween counties being much bigger on the left side than the right side."
+```
+
+
+
+
+
+
